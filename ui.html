@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DxH - Layer2JSON</title>
+</head>
+<body>
+  <script>
+    // Handle the message inside the webview
+    window.addEventListener('message', event => {
+      const data = event.data.pluginMessage; // The JSON data our extension sent
+      // Download the JSON data as a file
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dxh-layer2json.json';
+      document.body.appendChild(a);
+      a.click();
+      window.close();
+
+      // Close the figma plugin
+      parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
+    });
+  </script>
+</body>
+</html>
