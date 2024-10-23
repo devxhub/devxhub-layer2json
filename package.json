@@ -1,6 +1,6 @@
 {
   "name": "dxh-layer2json",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DxH - Layer2JSON is a Figma plugin by DxH that exports design layers (text, images, shapes) to structured JSON format. Perfect for developers looking to integrate Figma designs into apps or workflows, it supports nested layers and exports essential design properties like size, position, and styles.",
   "main": "code.js",
   "scripts": {

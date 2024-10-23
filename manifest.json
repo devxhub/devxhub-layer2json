@@ -1,15 +1,14 @@
 {
   "name": "DxH - Layer2JSON",
   "id": "1430267059751338495",
-  "api": "1.0.0",
+  "api": "1.0.1",
   "main": "code.js",
   "ui": "ui.html",
   "capabilities": [],
   "enableProposedApi": false,
   "documentAccess": "dynamic-page",
   "editorType": [
-    "figma",
-    "dev"
+    "figma"
   ],
   "networkAccess": {
     "allowedDomains": [
