@@ -1,16 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DxH - Layer2JSON</title>
+
+  <!-- Style using Figma's built-in CSS variables -->
+  <style>
+    body {
+      background-color: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      padding: 16px;
+    }
+
+    h3 {
+      color: var(--figma-color-text);
+      border-bottom: 1px solid var(--figma-color-border);
+      padding-bottom: 12px;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      color: var(--figma-color-text);
+      margin-bottom: 8px;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      accent-color: var(--figma-color-bg-component);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--figma-color-border-selected);
+      border-radius: 4px;
+      background-color: var(--figma-color-bg-secondary);
+      color: var(--figma-color-text);
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: var(--figma-color-bg-brand);
+      color: var(--figma-color-text);
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .message {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    .success {
+      background-color: var(--figma-color-bg-success);
+      color: var(--figma-color-text-onsuccess);
+    }
+
+    .error {
+      background-color: var(--figma-color-bg-danger);
+      color: var(--figma-color-text-ondanger);
+    }
+  </style>
 </head>
+
 <body>
+  <h3>Optional Options</h3>
+  <!-- Message containers -->
+  <div class="section">
+    <div id="successMessage" class="message success hidden"></div>
+    <div id="errorMessage" class="message error hidden"></div>
+  </div>
+
+  <!-- Checkbox for uploading images -->
+  <div class="section">
+    <label>
+      <input type="checkbox" id="uploadImagesCheckbox"> Upload Images
+    </label>
+    <div id="imageUploadField" class="hidden">
+      <label>Image Upload Endpoint:</label>
+      <input type="text" id="imageUploadEndpoint" placeholder="https://your-server.com/upload">
+    </div>
+  </div>
+
+  <!-- Checkbox for uploading JSON -->
+  <div class="section">
+    <label>
+      <input type="checkbox" id="uploadJsonCheckbox"> Upload JSON File
+    </label>
+    <div id="jsonUploadField" class="hidden">
+      <label>JSON Upload Endpoint:</label>
+      <input type="text" id="jsonUploadEndpoint" placeholder="https://your-server.com/json-upload">
+    </div>
+  </div>
+
+  <!-- Button to generate JSON -->
+  <div class="section">
+    <button id="generateJsonButton">Submit</button>
+  </div>
+
   <script>
+    // Toggle visibility for image upload input field
+    document.getElementById('uploadImagesCheckbox').addEventListener('change', function () {
+      document.getElementById('imageUploadField').classList.toggle('hidden', !this.checked);
+    });
+
+    // Toggle visibility for JSON upload input field
+    document.getElementById('uploadJsonCheckbox').addEventListener('change', function () {
+      document.getElementById('jsonUploadField').classList.toggle('hidden', !this.checked);
+    });
+
+    // Handle the button click event
+    document.getElementById('generateJsonButton').addEventListener('click', async function () {
+      // Validate the input fields
+      // If the checkbox is checked, the input field must not be empty
+      if (document.getElementById('uploadImagesCheckbox').checked) {
+        if (!document.getElementById('imageUploadEndpoint').value) {
+          showError('Please enter the image upload endpoint');
+          return;
+        }
+      }
+      // If the checkbox is checked, the input field must not be empty
+      if (document.getElementById('uploadJsonCheckbox').checked) {
+        if (!document.getElementById('jsonUploadEndpoint').value) {
+          showError('Please enter the JSON upload endpoint');
+          return;
+        }
+      }
+
+      // Remove the error messages and send a message to the plugin
+      document.getElementById('successMessage').classList.add('hidden');
+      document.getElementById('errorMessage').classList.add('hidden');
+
+      parent.postMessage({ pluginMessage: { type: 'generate' } }, '*');
+    });
+
     // Handle the message inside the webview
-    window.addEventListener('message', event => {
-      const data = event.data.pluginMessage; // The JSON data our extension sent
-      // Download the JSON data as a file
+    window.addEventListener('message', async event => {
+      const data = event.data.pluginMessage; // The JSON data sent by the plugin
+      await handlePluginMessage(data);  // Process and handle images
+    });
+
+    // Helper function to upload an image to the server
+    async function uploadImage (imageBytes, endpoint) {
+      try {
+        const imageBlob = new Blob([new Uint8Array(imageBytes)], { type: 'image/png' });
+        const formData = new FormData();
+        formData.append('file', imageBlob, 'image.png');
+
+        const response = await fetch(endpoint, { method: 'POST', body: formData });
+        if (response.ok) {
+          const data = await response.json();
+          return data.url;  // Return the image URL
+        } else {
+          throw new Error('Image upload failed: ' + response.statusText);
+        }
+      } catch (error) {
+        showError(error.message);
+        return null;
+      }
+    }
+
+    // Function to handle the plugin message (layers data)
+    async function handlePluginMessage (data) {
+      const uploadImages = document.getElementById('uploadImagesCheckbox').checked;
+      const imageUploadEndpoint = document.getElementById('imageUploadEndpoint').value;
+
+      // Process image uploads if the checkbox is checked
+      if (uploadImages && imageUploadEndpoint) {
+        for (const layer of data.layers) {
+          if (layer.type === 'RECTANGLE' || layer.type === 'FRAME') {
+            if (layer.imageBytes) {
+              const imageUrl = await uploadImage(layer.imageBytes, imageUploadEndpoint);
+              if (imageUrl) {
+                layer.imageUrl = imageUrl;  // Update JSON with the image URL
+                delete layer.imageBytes; // Remove the raw image data
+              }
+            }
+          }
+        }
+      }
+
+      // Handle JSON upload or download
+      const uploadJson = document.getElementById('uploadJsonCheckbox').checked;
+      const jsonUploadEndpoint = document.getElementById('jsonUploadEndpoint').value;
+
+      if (uploadJson && jsonUploadEndpoint) {
+        // Upload the JSON file to the server
+        await uploadJSON(data, jsonUploadEndpoint);
+      } else {
+        // Download the JSON file locally
+        // downloadJSON(data);
+      }
+    }
+
+    // Helper function to upload the JSON file to the server
+    async function uploadJSON (data, endpoint) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (response.ok) {
+          showSuccess('JSON file uploaded successfully!');
+        } else {
+          throw new Error('JSON upload failed: ' + response.statusText);
+        }
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    // Helper function to download the JSON file locally
+    function downloadJSON (data) {
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -18,11 +237,23 @@
       a.download = 'dxh-layer2json.json';
       document.body.appendChild(a);
       a.click();
-      window.close();
+      showSuccess('JSON file downloaded successfully!');
+    }
 
-      // Close the figma plugin
-      parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
-    });
+    // Helper function to show success messages
+    function showSuccess (message) {
+      const successMessage = document.getElementById('successMessage');
+      successMessage.textContent = message;
+      successMessage.classList.remove('hidden');
+    }
+
+    // Helper function to show error messages
+    function showError (message) {
+      const errorMessage = document.getElementById('errorMessage');
+      errorMessage.textContent = message;
+      errorMessage.classList.remove('hidden');
+    }
   </script>
 </body>
+
 </html>

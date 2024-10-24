@@ -1,13 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // This file holds the main code for plugins. Code in this file has access to
 // the *figma document* via the figma global object.
-// You can access browser APIs in the <script> tag inside "ui.html" which has a
-// full browser environment (See https://www.figma.com/plugin-docs/how-plugins-run).
+
+// Send the extracted layers to the UI
+figma.showUI(__html__, { themeColors: true });
 
 const layers: any[] = [];
 
+// Helper function to extract common properties (like fills, strokes, and effects)
+function extractCommonProperties(node: SceneNode) {
+  console.log(`Extracting common properties from node: ${node.name} (${node.type})`);
+  return {
+    fills: 'fills' in node ? node.fills : null,
+    strokes: 'strokes' in node ? node.strokes : null,
+    effects: 'effects' in node ? node.effects : null,
+  };
+}
+
 // Function to extract all layers, recursively traversing child layers
-function extractLayers(node: SceneNode) {
+async function extractLayers(node: SceneNode): Promise<any> {
+  console.log(`Extracting layer: ${node.name} (${node.type})`);
+
   const layer: any = {
     id: node.id,
     name: node.name,
@@ -16,76 +29,84 @@ function extractLayers(node: SceneNode) {
     y: node.y,
     width: node.width,
     height: node.height,
+    ...extractCommonProperties(node) // Add common properties
   };
 
   // If it's a text node, extract text-specific properties
   if (node.type === 'TEXT') {
     const textNode = node as TextNode;
+    console.log(`Extracting text-specific properties from: ${textNode.name}`);
     layer.characters = textNode.characters;
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
-    layer.fills = textNode.fills;
-    layer.effects = textNode.effects;
-    layer.strokes = textNode.strokes;
   }
-  // If it's a rectangle node, extract rectangle-specific properties
-  if (node.type === 'RECTANGLE') {
-    const rectangleNode = node as RectangleNode;
-    layer.fills = rectangleNode.fills;
-    layer.strokes = rectangleNode.strokes;
-    layer.effects = rectangleNode.effects;
+
+  // Check if it's an image or a node containing image data
+  if (node.type === 'RECTANGLE' || node.type === 'FRAME') {
+    const fills = (node as GeometryMixin).fills as Paint[];
+    if (fills && fills[0].type === 'IMAGE') {
+      const imageHash = fills[0].imageHash;
+      if (imageHash) {
+        console.log(`Extracting image bytes for: ${node.name}`);
+        const imageBytes = await figma.getImageByHash(imageHash)?.getBytesAsync();
+        if (imageBytes) {
+          console.log(`Image bytes extracted for: ${node.name}`);
+          layer.imageBytes = imageBytes;  // Store the image bytes in the layer
+        } else {
+          console.error(`Failed to extract image bytes for: ${node.name}`);
+        }
+      }
+    }
   }
-  // If it's an ellipse node, extract ellipse-specific properties
-  if (node.type === 'ELLIPSE') {
-    const ellipseNode = node as EllipseNode;
-    layer.fills = ellipseNode.fills;
-    layer.strokes = ellipseNode.strokes;
-    layer.effects = ellipseNode.effects;
-  }
-  // If it's a line node, extract line-specific properties
-  if (node.type === 'LINE') {
-    const lineNode = node as LineNode;
-    layer.strokes = lineNode.strokes;
-  }
-  // If it's a vector node, extract vector-specific properties
-  if (node.type === 'VECTOR') {
-    const vectorNode = node as VectorNode;
-    layer.fills = vectorNode.fills;
-    layer.strokes = vectorNode.strokes;
-    layer.effects = vectorNode.effects;
-  }
-  
-  // If it's a frame, group, or component, recursively extract its children
+
+  // Recursively extract children if applicable (for frames, groups, etc.)
   if ('children' in node) {
+    console.log(`Extracting children for: ${node.name}`);
     const childLayers: any[] = [];
-    node.children.forEach((child) => {
-      const childLayer = extractLayers(child);
+    for (const child of node.children) {
+      const childLayer = await extractLayers(child);
       childLayers.push(childLayer);
-    });
+    }
     layer.children = childLayers;
   }
 
   return layer;
 }
 
-// Traverse the selection and extract all layers
-figma.currentPage.selection.forEach((node) => {
-  const extractedLayer = extractLayers(node);
-  layers.push(extractedLayer);
-});
+// Traverse the selection and extract all layers using async/await
+async function extractSelectedLayers() {
+  const selection = figma.currentPage.selection;
 
-// Output the layers
-console.log(layers);
+  if (selection.length === 0) {
+    console.log("No layers selected.");
+    return;
+  }
 
-// This shows the HTML page in "ui.html".
-figma.showUI(__html__);
+  for (const node of selection) {
+    console.log(`Processing selected node: ${node.name}`);
+    const extractedLayer = await extractLayers(node);
+    console.log(`Extracted layer: ${extractedLayer.name}`);
+    layers.push(extractedLayer);
+  }
 
-// Send the extracted layers to the UI
-figma.ui.postMessage(layers);
+  // Log layers to console (for debugging)
+  console.log("Extracted layers:", JSON.stringify(layers, null, 2));
+}
 
-// When the user closes the plugin, send a message to close the plugin
-figma.ui.onmessage = msg => {
+// Start extracting layers
+// extractSelectedLayers();
+
+// Handle messages from UI
+figma.ui.onmessage = (msg) => {
   if (msg.type === 'close') {
     figma.closePlugin();
+  }
+
+  // Generate the JSON file
+  if (msg.type === 'generate') {
+    console.log('Generating JSON file...');
+    extractSelectedLayers();
+    const json = JSON.stringify(layers, null, 2);
+    figma.ui.postMessage({ type: 'json', json });
   }
 };
