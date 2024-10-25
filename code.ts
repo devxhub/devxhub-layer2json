@@ -6,16 +6,42 @@
 
 const layers: any[] = [];
 
+// Helper function to extract common properties (like fills, strokes, and effects)
+function extractCommonProperties(node: SceneNode) {
+  return {
+    fills: 'fills' in node ? node.fills : null,
+    strokes: 'strokes' in node ? node.strokes : null,
+    effects: 'effects' in node ? node.effects : null,
+  };
+}
+
+// Helper function to extract the numeric part from node.id (after the colon)
+function extractId(id: string): string {
+  const parts = id.split(':');
+  return parts.length > 1 ? parts[1] : id;
+}
+
+// Helper function to generate a UUID
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // Function to extract all layers, recursively traversing child layers
 function extractLayers(node: SceneNode) {
   const layer: any = {
-    id: node.id,
-    name: node.name,
+    id: generateUUID(),
     type: node.type,
+    name: node.name,
     x: node.x,
     y: node.y,
     width: node.width,
     height: node.height,
+    zIndex: extractId(node.id),
+    ...extractCommonProperties(node) // Add common properties
   };
 
   // If it's a text node, extract text-specific properties
@@ -24,35 +50,6 @@ function extractLayers(node: SceneNode) {
     layer.characters = textNode.characters;
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
-    layer.fills = textNode.fills;
-    layer.effects = textNode.effects;
-    layer.strokes = textNode.strokes;
-  }
-  // If it's a rectangle node, extract rectangle-specific properties
-  if (node.type === 'RECTANGLE') {
-    const rectangleNode = node as RectangleNode;
-    layer.fills = rectangleNode.fills;
-    layer.strokes = rectangleNode.strokes;
-    layer.effects = rectangleNode.effects;
-  }
-  // If it's an ellipse node, extract ellipse-specific properties
-  if (node.type === 'ELLIPSE') {
-    const ellipseNode = node as EllipseNode;
-    layer.fills = ellipseNode.fills;
-    layer.strokes = ellipseNode.strokes;
-    layer.effects = ellipseNode.effects;
-  }
-  // If it's a line node, extract line-specific properties
-  if (node.type === 'LINE') {
-    const lineNode = node as LineNode;
-    layer.strokes = lineNode.strokes;
-  }
-  // If it's a vector node, extract vector-specific properties
-  if (node.type === 'VECTOR') {
-    const vectorNode = node as VectorNode;
-    layer.fills = vectorNode.fills;
-    layer.strokes = vectorNode.strokes;
-    layer.effects = vectorNode.effects;
   }
   
   // If it's a frame, group, or component, recursively extract its children
@@ -62,7 +59,7 @@ function extractLayers(node: SceneNode) {
       const childLayer = extractLayers(child);
       childLayers.push(childLayer);
     });
-    layer.children = childLayers;
+    layer.layers = childLayers;
   }
 
   return layer;
@@ -73,9 +70,6 @@ figma.currentPage.selection.forEach((node) => {
   const extractedLayer = extractLayers(node);
   layers.push(extractedLayer);
 });
-
-// Output the layers
-console.log(layers);
 
 // This shows the HTML page in "ui.html".
 figma.showUI(__html__);
