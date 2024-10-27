@@ -1,28 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DxH - Layer2JSON</title>
+  <link href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
-<body>
-  <script>
-    // Handle the message inside the webview
-    window.addEventListener('message', event => {
-      const data = event.data.pluginMessage; // The JSON data our extension sent
-      // Download the JSON data as a file
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'dxh-layer2json.json';
-      document.body.appendChild(a);
-      a.click();
-      window.close();
 
-      // Close the figma plugin
-      parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
-    });
+<body>
+  <div id="app" class="container">
+    <div class="section">
+      <div v-if="successMessage" class="notification is-success">{{ successMessage }}</div>
+      <div v-if="errorMessage" class="notification is-danger">{{ errorMessage }}</div>
+
+      <!-- Upload Images Option -->
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" v-model="uploadImages"> Upload Images
+        </label>
+      </div>
+      <div v-if="uploadImages" class="field">
+        <label class="label">Image Upload Endpoint</label>
+        <div class="control">
+          <input class="input" type="url" v-model="imageUploadEndpoint" placeholder="https://your-server.com/upload">
+        </div>
+      </div>
+
+      <!-- Upload JSON Option -->
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" v-model="uploadJson"> Upload JSON File
+        </label>
+      </div>
+      <div v-if="uploadJson" class="field">
+        <label class="label">JSON Upload Endpoint</label>
+        <div class="control">
+          <input class="input" type="url" v-model="jsonUploadEndpoint"
+            placeholder="https://your-server.com/json-upload">
+        </div>
+      </div>
+      <div class="field">
+        <button class="button is-primary" @click="submitData">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup () {
+        const uploadImages = ref(false);
+        const uploadJson = ref(false);
+        const imageUploadEndpoint = ref('');
+        const jsonUploadEndpoint = ref('');
+        const successMessage = ref('');
+        const errorMessage = ref('');
+
+        const showError = (message) => {
+          errorMessage.value = message;
+          setTimeout(() => { errorMessage.value = ''; }, 3000);
+        };
+
+        const showSuccess = (message) => {
+          successMessage.value = message;
+          setTimeout(() => { successMessage.value = ''; }, 3000);
+        };
+
+        const uploadImage = async (uuid, imageBytes, endpoint) => {
+          try {
+            const imageBlob = new Blob([new Uint8Array(imageBytes)], { type: 'image/png' });
+            const formData = new FormData();
+            formData.append('uuid', uuid);
+            formData.append('image', imageBlob, 'image.png');
+
+            const response = await fetch(endpoint, { method: 'POST', body: formData });
+            if (response.ok) {
+              const data = await response.json();
+              return data.url;  // URL for the uploaded image
+            } else {
+              throw new Error('Image upload failed: ' + response.statusText);
+            }
+          } catch (error) {
+            showError(error.message);
+            return null;
+          }
+        };
+
+        const uploadJSON = async (data, endpoint) => {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data),
+            });
+            if (response.ok) {
+              showSuccess('JSON file uploaded successfully!');
+            } else {
+              throw new Error('JSON upload failed: ' + response.statusText);
+            }
+          } catch (error) {
+            showError(error.message);
+          }
+        };
+
+        const downloadJSON = (data) => {
+          const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dxh-layer2json.json';
+          document.body.appendChild(a);
+          a.click();
+          showSuccess('JSON file downloaded successfully!');
+        };
+
+        // Recursive function to upload images for each layer
+        async function processLayers (layers) {
+          for (const layer of layers) {
+            // Upload image if imageBytes exist
+            if (layer.imageBytes) {
+              const imageUrl = await uploadImage(layer.id, layer.imageBytes, imageUploadEndpoint.value);
+              if (imageUrl) {
+                layer.imageUrl = imageUrl;
+                delete layer.imageBytes;  // Remove raw bytes
+              }
+            }
+            // If the layer has child layers, process them recursively
+            if (layer.layers && Array.isArray(layer.layers)) {
+              await processLayers(layer.layers);
+            }
+          }
+        };
+
+        const handlePluginMessage = async (data) => {
+          if (uploadImages.value && imageUploadEndpoint.value) {
+            if (Array.isArray(data)) {
+              await processLayers(data); // data is an array of layers
+            } else if (data.layers && Array.isArray(data.layers)) {
+              await processLayers(data.layers); // data has a layers array
+            }
+          }
+
+          if (uploadJson.value && jsonUploadEndpoint.value) {
+            await uploadJSON(data, jsonUploadEndpoint.value);
+          } else {
+            downloadJSON(data);
+          }
+        };
+
+        const submitData = () => {
+          if (uploadImages.value && !imageUploadEndpoint.value) {
+            showError('Please enter the image upload endpoint');
+            return;
+          }
+          if (uploadJson.value && !jsonUploadEndpoint.value) {
+            showError('Please enter the JSON upload endpoint');
+            return;
+          }
+          successMessage.value = '';
+          errorMessage.value = '';
+          parent.postMessage({ pluginMessage: { type: 'generate' } }, '*');
+        };
+
+        window.addEventListener('message', async (event) => {
+          const data = event.data.pluginMessage;
+          await handlePluginMessage(data);
+        });
+
+        return {
+          uploadImages,
+          uploadJson,
+          imageUploadEndpoint,
+          jsonUploadEndpoint,
+          successMessage,
+          errorMessage,
+          submitData,
+        };
+      }
+    }).mount('#app');
   </script>
 </body>
+
 </html>

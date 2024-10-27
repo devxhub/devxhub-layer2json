@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // This file holds the main code for plugins. Code in this file has access to
 // the *figma document* via the figma global object.
-// You can access browser APIs in the <script> tag inside "ui.html" which has a
-// full browser environment (See https://www.figma.com/plugin-docs/how-plugins-run).
+
+// Send the extracted layers to the UI
+figma.showUI(__html__, { themeColors: true });
 
 const layers: any[] = [];
 
@@ -16,14 +17,14 @@ function extractCommonProperties(node: SceneNode) {
 }
 
 // Helper function to extract the numeric part from node.id (after the colon)
-function extractId(id: string): string {
+function extractId(id: string): number {
   const parts = id.split(':');
-  return parts.length > 1 ? parts[1] : id;
+  return parts.length > 1 ? parseInt(parts[1], 10) : parseInt(id, 10);
 }
 
 // Helper function to generate a UUID
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -31,7 +32,7 @@ function generateUUID() {
 }
 
 // Function to extract all layers, recursively traversing child layers
-function extractLayers(node: SceneNode) {
+async function extractLayers(node: SceneNode) {
   const layer: any = {
     id: generateUUID(),
     type: node.type,
@@ -51,35 +52,65 @@ function extractLayers(node: SceneNode) {
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
   }
-  
+
+  // Check if it's an image or a node containing image data
+  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'GROUP' || node.type === 'COMPONENT') {
+    const fills = (node as GeometryMixin).fills as Paint[];
+    if (fills && fills[0].type === 'IMAGE') {
+      const imageHash = fills[0].imageHash;
+      if (imageHash) {
+        const imageByHash = figma.getImageByHash(imageHash);
+        if (imageByHash) {
+          const imageBytes = await imageByHash.getBytesAsync();
+          if (imageBytes) {
+            layer.imageBytes = imageBytes;  // Store the image bytes in the layer
+          } else {
+            console.error(`Failed to extract image bytes for: ${node.name}`);
+          }
+        }
+      }
+    }
+  }
+
+  // Recursively extract children if applicable (for frames, groups, etc.)
   // If it's a frame, group, or component, recursively extract its children
   if ('children' in node) {
     const childLayers: any[] = [];
-    node.children.forEach((child) => {
-      const childLayer = extractLayers(child);
+    for (const child of node.children) {
+      const childLayer = await extractLayers(child);
       childLayers.push(childLayer);
-    });
+    }
     layer.layers = childLayers;
-  }
+  }  
 
   return layer;
 }
 
-// Traverse the selection and extract all layers
-figma.currentPage.selection.forEach((node) => {
-  const extractedLayer = extractLayers(node);
-  layers.push(extractedLayer);
-});
+// Traverse the selection and extract all layers using async/await
+async function extractSelectedLayers() {
+  const selection = figma.currentPage.selection;
 
-// This shows the HTML page in "ui.html".
-figma.showUI(__html__);
+  if (selection.length === 0) {
+    console.log("No layers selected.");
+    return;
+  }
 
-// Send the extracted layers to the UI
-figma.ui.postMessage(layers);
+  for (const node of selection) {
+    const extractedLayer = await extractLayers(node);
+    layers.push(extractedLayer);
+  }
 
-// When the user closes the plugin, send a message to close the plugin
-figma.ui.onmessage = msg => {
+  figma.ui.postMessage(layers); // Move this line here to ensure it sends after processing
+}
+
+// Handle messages from UI
+figma.ui.onmessage = async (msg) => {
   if (msg.type === 'close') {
     figma.closePlugin();
+  }
+
+  if (msg.type === 'generate') {
+    console.log('Generating JSON file...');
+    await extractSelectedLayers(); // Ensures all layers are processed before sending
   }
 };
