@@ -17,14 +17,14 @@ function extractCommonProperties(node: SceneNode) {
 }
 
 // Helper function to extract the numeric part from node.id (after the colon)
-function extractId(id: string): string {
+function extractId(id: string): number {
   const parts = id.split(':');
-  return parts.length > 1 ? parts[1] : id;
+  return parts.length > 1 ? parseInt(parts[1], 10) : parseInt(id, 10);
 }
 
 // Helper function to generate a UUID
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -32,9 +32,7 @@ function generateUUID() {
 }
 
 // Function to extract all layers, recursively traversing child layers
-async function extractLayers(node: SceneNode): Promise<any> {
-  console.log(`Extracting layer: ${node.name} (${node.type})`);
-
+async function extractLayers(node: SceneNode) {
   const layer: any = {
     id: generateUUID(),
     type: node.type,
@@ -50,40 +48,40 @@ async function extractLayers(node: SceneNode): Promise<any> {
   // If it's a text node, extract text-specific properties
   if (node.type === 'TEXT') {
     const textNode = node as TextNode;
-    console.log(`Extracting text-specific properties from: ${textNode.name}`);
     layer.characters = textNode.characters;
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
   }
 
   // Check if it's an image or a node containing image data
-  if (node.type === 'RECTANGLE' || node.type === 'FRAME') {
+  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'GROUP' || node.type === 'COMPONENT') {
     const fills = (node as GeometryMixin).fills as Paint[];
     if (fills && fills[0].type === 'IMAGE') {
       const imageHash = fills[0].imageHash;
       if (imageHash) {
-        console.log(`Extracting image bytes for: ${node.name}`);
-        const imageBytes = await figma.getImageByHash(imageHash)?.getBytesAsync();
-        if (imageBytes) {
-          console.log(`Image bytes extracted for: ${node.name}`);
-          layer.imageBytes = imageBytes;  // Store the image bytes in the layer
-        } else {
-          console.error(`Failed to extract image bytes for: ${node.name}`);
+        const imageByHash = figma.getImageByHash(imageHash);
+        if (imageByHash) {
+          const imageBytes = await imageByHash.getBytesAsync();
+          if (imageBytes) {
+            layer.imageBytes = imageBytes;  // Store the image bytes in the layer
+          } else {
+            console.error(`Failed to extract image bytes for: ${node.name}`);
+          }
         }
       }
     }
   }
 
   // Recursively extract children if applicable (for frames, groups, etc.)
+  // If it's a frame, group, or component, recursively extract its children
   if ('children' in node) {
-    console.log(`Extracting children for: ${node.name}`);
     const childLayers: any[] = [];
     for (const child of node.children) {
       const childLayer = await extractLayers(child);
       childLayers.push(childLayer);
     }
     layer.layers = childLayers;
-  }
+  }  
 
   return layer;
 }
@@ -98,30 +96,21 @@ async function extractSelectedLayers() {
   }
 
   for (const node of selection) {
-    console.log(`Processing selected node: ${node.name}`);
     const extractedLayer = await extractLayers(node);
-    console.log(`Extracted layer: ${extractedLayer.name}`);
     layers.push(extractedLayer);
   }
 
-  // Log layers to console (for debugging)
-  console.log("Extracted layers:", JSON.stringify(layers, null, 2));
+  figma.ui.postMessage(layers); // Move this line here to ensure it sends after processing
 }
 
-// Start extracting layers
-// extractSelectedLayers();
-
 // Handle messages from UI
-figma.ui.onmessage = (msg) => {
+figma.ui.onmessage = async (msg) => {
   if (msg.type === 'close') {
     figma.closePlugin();
   }
 
-  // Generate the JSON file
   if (msg.type === 'generate') {
     console.log('Generating JSON file...');
-    extractSelectedLayers();
-    const json = JSON.stringify(layers, null, 2);
-    figma.ui.postMessage({ type: 'json', json });
+    await extractSelectedLayers(); // Ensures all layers are processed before sending
   }
 };

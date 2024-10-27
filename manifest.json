@@ -11,8 +11,8 @@
     "figma"
   ],
   "networkAccess": {
-    "allowedDomains": [
-      "none"
-    ]
+    "allowedDomains": ["*"],
+    "reasoning": "The plugin requires internet access to upload JSON data and images to endpoints specified by the user.",
+    "devAllowedDomains": ["*"]
   }
 }
