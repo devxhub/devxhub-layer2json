@@ -3,8 +3,13 @@
 // the *figma document* via the figma global object.
 
 // Send the extracted layers to the UI
-figma.showUI(__html__, { themeColors: true });
+figma.showUI(__html__, { 
+  themeColors: true,
+  width: 400,
+  height: 400
+});
 
+// Initialize an empty array to hold the extracted layers
 const layers: any[] = [];
 
 // Helper function to extract common properties (like fills, strokes, and effects)
@@ -65,7 +70,7 @@ async function extractLayers(node: SceneNode) {
           if (imageBytes) {
             layer.imageBytes = imageBytes;  // Store the image bytes in the layer
           } else {
-            console.error(`Failed to extract image bytes for: ${node.name}`);
+            figma.notify('Error: Could not extract image)', { error: true });
           }
         }
       }
@@ -91,7 +96,7 @@ async function extractSelectedLayers() {
   const selection = figma.currentPage.selection;
 
   if (selection.length === 0) {
-    console.log("No layers selected.");
+    figma.notify('Please select one or more layers to extract.', { error: true });
     return;
   }
 
@@ -100,7 +105,8 @@ async function extractSelectedLayers() {
     layers.push(extractedLayer);
   }
 
-  figma.ui.postMessage(layers); // Move this line here to ensure it sends after processing
+  // Send the extracted layers to the UI
+  figma.ui.postMessage(layers);
 }
 
 // Handle messages from UI
@@ -110,7 +116,10 @@ figma.ui.onmessage = async (msg) => {
   }
 
   if (msg.type === 'generate') {
-    console.log('Generating JSON file...');
-    await extractSelectedLayers(); // Ensures all layers are processed before sending
+    try {
+      await extractSelectedLayers();
+    } catch (error) {
+      figma.notify(`Error: ${error}`, { error: true });
+    }
   }
 };

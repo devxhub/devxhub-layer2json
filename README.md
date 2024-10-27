@@ -4,6 +4,13 @@
 
 ## Getting Started
 
+## Image Upload
+To support image uploads, create a POST endpoint that accepts two properties: 
+1. `uuid` (string) 
+2. `image` (binary data).
+
+In the response, return a `url` pointing to the uploaded image. Ensure that the endpoint includes the header `Access-Control-Allow-Origin: null` to handle requests from Figma, which sends `Origin: null` in the request header.
+
 ### Prerequisites
 1. **Node.js** (which includes NPM) – [Download Node.js](https://nodejs.org/en/download/)
 2. **TypeScript** – Install globally using:

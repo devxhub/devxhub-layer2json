@@ -42,7 +42,7 @@
         </div>
       </div>
       <div class="field">
-        <button class="button is-primary" @click="submitData">Submit</button>
+        <button class="button is-primary" @click="submitData" :disabled="loading">Submit</button>
       </div>
     </div>
   </div>
@@ -58,6 +58,7 @@
         const jsonUploadEndpoint = ref('');
         const successMessage = ref('');
         const errorMessage = ref('');
+        const loading = ref(false);
 
         const showError = (message) => {
           errorMessage.value = message;
@@ -136,18 +137,26 @@
         };
 
         const handlePluginMessage = async (data) => {
-          if (uploadImages.value && imageUploadEndpoint.value) {
-            if (Array.isArray(data)) {
-              await processLayers(data); // data is an array of layers
-            } else if (data.layers && Array.isArray(data.layers)) {
-              await processLayers(data.layers); // data has a layers array
+          loading.value = true;
+          try {
+            if (uploadImages.value && imageUploadEndpoint.value) {
+              if (Array.isArray(data)) {
+                await processLayers(data);
+              } else if (data.layers && Array.isArray(data.layers)) {
+                await processLayers(data.layers);
+              }
             }
-          }
 
-          if (uploadJson.value && jsonUploadEndpoint.value) {
-            await uploadJSON(data, jsonUploadEndpoint.value);
-          } else {
-            downloadJSON(data);
+            if (uploadJson.value && jsonUploadEndpoint.value) {
+              await uploadJSON(data, jsonUploadEndpoint.value);
+            } else {
+              downloadJSON(data);
+            }
+          } catch (error) {
+            showError(error.message);
+          } finally {
+            loading.value = false;
+            parent.postMessage({ pluginMessage: { type: 'close' } }, '*');
           }
         };
 
@@ -178,6 +187,7 @@
           successMessage,
           errorMessage,
           submitData,
+          loading,
         };
       }
     }).mount('#app');
