@@ -18,6 +18,7 @@ function extractCommonProperties(node: SceneNode) {
     fills: 'fills' in node ? node.fills : null,
     strokes: 'strokes' in node ? node.strokes : null,
     effects: 'effects' in node ? node.effects : null,
+    cornerRadius: 'cornerRadius' in node ? node.cornerRadius : null,
   };
 }
 
@@ -56,6 +57,22 @@ async function extractLayers(node: SceneNode) {
     layer.characters = textNode.characters;
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
+    layer.fontWeight = textNode.fontWeight;
+    layer.textAlignHorizontal = textNode.textAlignHorizontal;
+    layer.textAlignVertical = textNode.textAlignVertical;
+    layer.letterSpacing = textNode.letterSpacing;
+    layer.lineHeight = textNode.lineHeight;
+    layer.paragraphIndent = textNode.paragraphIndent;
+    layer.paragraphSpacing = textNode.paragraphSpacing;
+    layer.textCase = textNode.textCase;
+    layer.textDecoration = textNode.textDecoration;
+    layer.textAutoResize = textNode.textAutoResize;
+  }
+
+  // If it's a ellipse node, extract ellipse-specific properties
+  if (node.type === 'ELLIPSE') {
+    const ellipseNode = node as EllipseNode;
+    layer.arcData = ellipseNode.arcData;
   }
 
   // Check if it's an image or a node containing image data
