@@ -18,7 +18,6 @@ function extractCommonProperties(node: SceneNode) {
     fills: 'fills' in node ? node.fills : null,
     strokes: 'strokes' in node ? node.strokes : null,
     effects: 'effects' in node ? node.effects : null,
-    cornerRadius: 'cornerRadius' in node ? node.cornerRadius : null,
   };
 }
 
@@ -39,6 +38,7 @@ function generateUUID(): string {
 
 // Function to extract all layers, recursively traversing child layers
 async function extractLayers(node: SceneNode) {
+  // Create a new layer object with common properties
   const layer: any = {
     id: generateUUID(),
     type: node.type,
@@ -73,6 +73,39 @@ async function extractLayers(node: SceneNode) {
   if (node.type === 'ELLIPSE') {
     const ellipseNode = node as EllipseNode;
     layer.arcData = ellipseNode.arcData;
+    layer.isMask = ellipseNode.isMask;
+    layer.markType = ellipseNode.maskType;
+    layer.cornerRadius = ellipseNode.cornerRadius;
+  }
+
+  // If it's a rectangle node, extract rectangle-specific properties
+  if (node.type === 'RECTANGLE') {
+    const rectangleNode = node as RectangleNode;
+    layer.isMask = rectangleNode.isMask;
+    layer.markType = rectangleNode.maskType;
+    if (rectangleNode.cornerRadius !== figma.mixed) {
+      layer.cornerRadius = rectangleNode.cornerRadius;
+    } else {
+      layer.cornerRadius = {
+        topLeft: rectangleNode.topLeftRadius,
+        topRight: rectangleNode.topRightRadius,
+        bottomLeft: rectangleNode.bottomLeftRadius,
+        bottomRight: rectangleNode.bottomRightRadius
+      };
+    }
+    if (rectangleNode.strokeWeight !== figma.mixed) {
+      layer.strokeWeight = rectangleNode.strokeWeight;
+    } else {
+      layer.strokeWeight = {
+        top: rectangleNode.strokeTopWeight,
+        right: rectangleNode.strokeRightWeight,
+        bottom: rectangleNode.strokeBottomWeight,
+        left: rectangleNode.strokeLeftWeight
+      };
+    }
+    layer.relativeTransform = rectangleNode.relativeTransform;
+    layer.absoluteTransform = rectangleNode.absoluteTransform;
+    layer.rotation = rectangleNode.rotation;
   }
 
   // Check if it's an image or a node containing image data
