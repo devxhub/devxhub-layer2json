@@ -108,6 +108,12 @@ async function extractLayers(node: SceneNode) {
     layer.rotation = rectangleNode.rotation;
   }
 
+  // If it's a vector node, extract vector-specific properties
+  if (node.type === 'VECTOR') {
+    const vectorNode = node as VectorNode;
+    layer.vectorPaths = vectorNode.vectorPaths;
+  }
+
   // Check if it's an image or a node containing image data
   if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'GROUP' || node.type === 'COMPONENT') {
     const fills = (node as GeometryMixin).fills as Paint[];
