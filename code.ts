@@ -3,7 +3,7 @@
 // the *figma document* via the figma global object.
 
 // Send the extracted layers to the UI
-figma.showUI(__html__, { 
+figma.showUI(__html__, {
   themeColors: true,
   width: 400,
   height: 400
@@ -115,18 +115,20 @@ async function extractLayers(node: SceneNode) {
   }
 
   // Check if it's an image or a node containing image data
-  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'GROUP' || node.type === 'COMPONENT') {
+  if (node.type === 'RECTANGLE' || node.type === 'FRAME') {
     const fills = (node as GeometryMixin).fills as Paint[];
-    if (fills && fills[0].type === 'IMAGE') {
-      const imageHash = fills[0].imageHash;
-      if (imageHash) {
-        const imageByHash = figma.getImageByHash(imageHash);
-        if (imageByHash) {
-          const imageBytes = await imageByHash.getBytesAsync();
-          if (imageBytes) {
-            layer.imageBytes = imageBytes;  // Store the image bytes in the layer
-          } else {
-            figma.notify('Error: Could not extract image)', { error: true });
+    for (const paint of fills) {
+      if (paint.type === 'IMAGE') {
+        const imageHash = paint.imageHash;
+        if (imageHash) {
+          const imageByHash = figma.getImageByHash(imageHash);
+          if (imageByHash) {
+            const imageBytes = await imageByHash.getBytesAsync();
+            if (imageBytes) {
+              layer.imageBytes = imageBytes;  // Store the image bytes in the layer
+            } else {
+              figma.notify('Error: Could not extract image)', { error: true });
+            }
           }
         }
       }
@@ -142,7 +144,7 @@ async function extractLayers(node: SceneNode) {
       childLayers.push(childLayer);
     }
     layer.layers = childLayers;
-  }  
+  }
 
   return layer;
 }
