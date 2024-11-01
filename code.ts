@@ -115,7 +115,7 @@ async function extractLayers(node: SceneNode) {
   }
 
   // Check if it's an image or a node containing image data
-  if (node.type === 'RECTANGLE' || node.type === 'FRAME') {
+  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'BOOLEAN_OPERATION') {
     const fills = (node as GeometryMixin).fills as Paint[];
     for (const paint of fills) {
       if (paint.type === 'IMAGE') {
@@ -125,7 +125,12 @@ async function extractLayers(node: SceneNode) {
           if (imageByHash) {
             const imageBytes = await imageByHash.getBytesAsync();
             if (imageBytes) {
-              layer.imageBytes = imageBytes;  // Store the image bytes in the layer
+              const image = {
+                id: layer.id,
+                bytes: imageBytes
+              }
+              // Send the image data to the UI
+              figma.ui.postMessage({ type: 'image', data: image });
             } else {
               figma.notify('Error: Could not extract image)', { error: true });
             }
@@ -164,7 +169,7 @@ async function extractSelectedLayers() {
   }
 
   // Send the extracted layers to the UI
-  figma.ui.postMessage(layers);
+  figma.ui.postMessage({ type: 'layers', data: JSON.stringify(layers) });
 }
 
 // Handle messages from UI

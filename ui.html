@@ -59,6 +59,7 @@
         const successMessage = ref('');
         const errorMessage = ref('');
         const loading = ref(false);
+        const images = ref([]);
 
         const showError = (message) => {
           errorMessage.value = message;
@@ -72,20 +73,28 @@
 
         const uploadImage = async (uuid, imageBytes, endpoint) => {
           try {
+            // Convert imageBytes to Blob
             const imageBlob = new Blob([new Uint8Array(imageBytes)], { type: 'image/png' });
+
+            // Prepare form data
             const formData = new FormData();
             formData.append('uuid', uuid);
             formData.append('image', imageBlob, 'image.png');
 
+            // Make fetch request
             const response = await fetch(endpoint, { method: 'POST', body: formData });
-            if (response.ok) {
-              const data = await response.json();
-              return data.url;  // URL for the uploaded image
-            } else {
-              throw new Error('Image upload failed: ' + response.statusText);
+
+            // Handle response
+            if (!response.ok) {
+              const errorText = await response.text();
+              showError(`Image upload failed with status ${response.status}: ${errorText}`);
+              return null;
             }
+
+            const data = await response.json();
+            return data.url;  // URL for the uploaded image
           } catch (error) {
-            showError(error.message);
+            showError(`Upload failed: ${error.message}`);
             return null;
           }
         };
@@ -122,11 +131,11 @@
         async function processLayers (layers) {
           for (const layer of layers) {
             // Upload image if imageBytes exist
-            if (layer.imageBytes) {
-              const imageUrl = await uploadImage(layer.id, layer.imageBytes, imageUploadEndpoint.value);
+            const image = images.value.find(img => img.id === layer.id);
+            if (image) {
+              const imageUrl = await uploadImage(layer.id, image.bytes, imageUploadEndpoint.value);
               if (imageUrl) {
                 layer.imageUrl = imageUrl;
-                delete layer.imageBytes;  // Remove raw bytes
               }
             }
             // If the layer has child layers, process them recursively
@@ -175,8 +184,16 @@
         };
 
         window.addEventListener('message', async (event) => {
-          const data = event.data.pluginMessage;
-          await handlePluginMessage(data);
+          const message = event.data.pluginMessage;
+          if (message.type === 'image') {
+            console.log('Received image:', message.data ? message.data.id : null);
+            images.value.push(message.data);
+          }
+          if (message.type === 'layers') {
+            await handlePluginMessage(JSON.parse(message.data));
+          } else if (message.type === 'error') {
+            showError(message.data);
+          }
         });
 
         return {
