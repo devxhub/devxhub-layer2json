@@ -112,10 +112,12 @@ async function extractLayers(node: SceneNode) {
   if (node.type === 'VECTOR') {
     const vectorNode = node as VectorNode;
     layer.vectorPaths = vectorNode.vectorPaths;
+    layer.isMask = vectorNode.isMask;
+    layer.markType = vectorNode.maskType;
   }
 
   // Check if it's an image or a node containing image data
-  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'BOOLEAN_OPERATION') {
+  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'BOOLEAN_OPERATION' || node.type === 'VECTOR') {
     const fills = (node as GeometryMixin).fills as Paint[];
     for (const paint of fills) {
       if (paint.type === 'IMAGE') {
