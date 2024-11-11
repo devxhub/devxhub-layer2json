@@ -118,7 +118,7 @@ async function extractLayers(node: SceneNode) {
   }
 
   // Check if it's an image or a node containing image data
-  if (node.type === 'RECTANGLE' || node.type === 'FRAME' || node.type === 'BOOLEAN_OPERATION' || node.type === 'VECTOR') {
+  if (node.type === 'RECTANGLE' || node.type === 'ELLIPSE' || node.type === 'FRAME' || node.type === 'BOOLEAN_OPERATION' || node.type === 'VECTOR') {
     const fills = (node as GeometryMixin).fills as Paint[];
     for (const paint of fills) {
       if (paint.type === 'IMAGE') {
