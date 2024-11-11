@@ -67,6 +67,7 @@ async function extractLayers(node: SceneNode) {
     layer.textCase = textNode.textCase;
     layer.textDecoration = textNode.textDecoration;
     layer.textAutoResize = textNode.textAutoResize;
+    layer.rotation = Math.abs(textNode.rotation > 180 ? textNode.rotation - 360 : textNode.rotation);
   }
 
   // If it's a ellipse node, extract ellipse-specific properties
