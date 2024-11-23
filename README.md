@@ -1,6 +1,6 @@
-# DxH - Layer2JSON
+# Devxhub - Layer2JSON
 
-**DxH - Layer2JSON** is a Figma plugin that exports design layers (text, images, shapes) as structured JSON. This plugin uses TypeScript and NPM to make development easy and streamlined.
+**Devxhub - Layer2JSON** is a Figma plugin that exports design layers (text, images, shapes) as structured JSON. This plugin uses TypeScript and NPM to make development easy and streamlined.
 
 ## Getting Started
 
