@@ -67,8 +67,6 @@ async function extractLayers(node: SceneNode) {
   // If it's a text node, extract text-specific properties
   if (node.type === 'TEXT') {
     const textNode = node as TextNode;
-
-    console.log("textNode", textNode)
     layer.characters = textNode.characters;
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
