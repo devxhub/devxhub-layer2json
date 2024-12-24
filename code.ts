@@ -12,21 +12,6 @@ figma.showUI(__html__, {
 // Initialize an empty array to hold the extracted layers
 const layers: any[] = [];
 
-// Helper function to extract common properties (like fills, strokes, and effects)
-function extractCommonProperties(node: SceneNode) {
-  return {
-    fills: 'fills' in node ? node.fills : null,
-    strokes: 'strokes' in node ? node.strokes : null,
-    effects: 'effects' in node ? node.effects : null,
-  };
-}
-
-// Helper function to extract the numeric part from node.id (after the colon)
-function extractId(id: string): number {
-  const parts = id.split(':');
-  return parts.length > 1 ? parseInt(parts[1], 10) : parseInt(id, 10);
-}
-
 // Helper function to generate a UUID
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -34,6 +19,34 @@ function generateUUID(): string {
       v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function addIds(array: readonly Paint[] | null): (Paint & { id: string })[] | null {
+  if (!array) return null;
+  return array.map(item => ({
+    ...item,
+    id: generateUUID(), // Generate a unique ID for each paint or stroke
+  }));
+}
+
+// Helper function to extract common properties (like fills, strokes, and effects)
+function extractCommonProperties(node: SceneNode) {
+  return {
+    fills: 'fills' in node ? node.fills : null,
+    strokes: hasStrokes(node) ? addIds([...node.strokes]) : null,
+    effects: 'effects' in node ? node.effects : null,
+  };
+}
+
+// Type guard to check if the node has the 'strokes' property
+function hasStrokes(node: SceneNode): node is SceneNode & { strokes: readonly Paint[] } {
+  return 'strokes' in node && Array.isArray(node.strokes);
+}
+
+// Helper function to extract the numeric part from node.id (after the colon)
+function extractId(id: string): number {
+  const parts = id.split(':');
+  return parts.length > 1 ? parseInt(parts[1], 10) : parseInt(id, 10);
 }
 
 // Function to extract all layers, recursively traversing child layers
@@ -54,6 +67,8 @@ async function extractLayers(node: SceneNode) {
   // If it's a text node, extract text-specific properties
   if (node.type === 'TEXT') {
     const textNode = node as TextNode;
+
+    console.log("textNode", textNode)
     layer.characters = textNode.characters;
     layer.fontSize = textNode.fontSize;
     layer.fontName = textNode.fontName;
