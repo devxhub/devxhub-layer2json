@@ -32,15 +32,25 @@ function addIds(array: readonly Paint[] | null): (Paint & { id: string })[] | nu
 // Helper function to extract common properties (like fills, strokes, and effects)
 function extractCommonProperties(node: SceneNode) {
   return {
-    fills: 'fills' in node ? node.fills : null,
+    fills: hasFills(node) ? addIds([...node.fills]) : null,
     strokes: hasStrokes(node) ? addIds([...node.strokes]) : null,
-    effects: 'effects' in node ? node.effects : null,
+    effects: hasEffects(node) ? addIds([...node.effects]) : null,
   };
+}
+
+// Type guard to check if the node has the 'fills' property
+function hasFills(node: SceneNode): node is SceneNode & { fills: readonly Paint[] } {
+  return 'fills' in node && Array.isArray(node.fills);
 }
 
 // Type guard to check if the node has the 'strokes' property
 function hasStrokes(node: SceneNode): node is SceneNode & { strokes: readonly Paint[] } {
   return 'strokes' in node && Array.isArray(node.strokes);
+}
+
+// Type guard to check if the node has the 'effects' property
+function hasEffects(node: SceneNode): node is SceneNode & { effects: readonly Paint[] } {
+  return 'effects' in node && Array.isArray(node.effects);
 }
 
 // Helper function to extract the numeric part from node.id (after the colon)
