@@ -100,6 +100,9 @@ async function extractLayers(node: SceneNode) {
     layer.isMask = ellipseNode.isMask;
     layer.markType = ellipseNode.maskType;
     layer.cornerRadius = ellipseNode.cornerRadius;
+    layer.relativeTransform = ellipseNode.relativeTransform;
+    layer.absoluteTransform = ellipseNode.absoluteTransform;
+    layer.rotation = ellipseNode.rotation;
   }
 
   // If it's a rectangle node, extract rectangle-specific properties
@@ -138,6 +141,9 @@ async function extractLayers(node: SceneNode) {
     layer.vectorPaths = vectorNode.vectorPaths;
     layer.isMask = vectorNode.isMask;
     layer.markType = vectorNode.maskType;
+    layer.relativeTransform = vectorNode.relativeTransform;
+    layer.absoluteTransform = vectorNode.absoluteTransform;
+    layer.rotation = vectorNode.rotation;
   }
 
   // Check if it's an image or a node containing image data
