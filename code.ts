@@ -68,6 +68,7 @@ async function extractLayers(node: SceneNode) {
     name: node.name,
     x: node.x,
     y: node.y,
+    visible: true,
     width: node.width,
     height: node.height,
     zIndex: extractId(node.id),
